@@ -157,19 +157,6 @@ const ResultsCard: React.FC<ResultsCardProps> = ({ result }) => {
           ))}
         </div>
       </div>
-
-      {/* Action Buttons */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-center">
-        <button className="bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
-          Save to History
-        </button>
-        <button className="bg-white hover:bg-gray-50 text-gray-700 px-6 py-3 rounded-lg font-medium border border-gray-300 transition-all duration-200 transform hover:scale-105">
-          Export as PDF
-        </button>
-        <button className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-105">
-          Analyze Another
-        </button>
-      </div>
     </motion.div>
   );
 };
