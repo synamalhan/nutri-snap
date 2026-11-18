@@ -1,5 +1,7 @@
 # 🍽️ NutriSnap Food Nutrition Database
 
+![Architecture](docs/architecture.svg)
+
 This repository contains `food_db.csv`, a simple and structured database mapping common food items to their average macronutrient values per 100 grams. It is designed to work with object detection outputs from a custom-trained YOLOv8 model that recognizes 43 different food classes.
 
 ---
