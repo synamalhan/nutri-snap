@@ -19,7 +19,8 @@ def detect_food_items(image_path, conf=0.4):
         class_name = model.names[cls_id]
         detections.append({
             "name": class_name.lower(),
-            "confidence": round(confidence, 2)
+            "confidence": round(confidence, 2),
+            "box": [round(v, 4) for v in box.xyxyn[0].tolist()],  # normalized x1, y1, x2, y2
         })
 
     return detections

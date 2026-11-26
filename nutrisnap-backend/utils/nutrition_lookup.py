@@ -15,6 +15,7 @@ def lookup_nutrition(detections):
             item = {
                 "name": food_name,
                 "confidence": det["confidence"],
+                "box": det.get("box"),
                 "calories": int(row["calories"].values[0]),
                 "protein": int(row["protein"].values[0]),
                 "carbs": int(row["carbs"].values[0]),

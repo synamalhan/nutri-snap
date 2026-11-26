@@ -1,161 +1,173 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Utensils, 
-  Zap, 
-  Activity, 
-  TrendingUp, 
-  Info,
-  Heart,
-  Scale,
-  Timer
-} from 'lucide-react';
-import { AnalysisResult, FoodItem } from '../types';
+import { Utensils, Timer, X, Undo2, BookmarkPlus, BookmarkCheck } from 'lucide-react';
+import { AnalysisResult, Goals, NutritionTotal } from '../types';
+import { totalFor, healthRating, sumTotals } from '../nutrition';
+import DetectionPhoto from './DetectionPhoto';
+import MacroDonut from './MacroDonut';
+import GoalsPanel from './GoalsPanel';
 
 interface ResultsCardProps {
   result: AnalysisResult;
+  imageUrl: string | null;
+  goals: Goals;
+  setGoals: (g: Goals) => void;
+  /** Today's logged total, excluding this meal. */
+  loggedExcludingThis: NutritionTotal;
+  isSaved: boolean;
+  onSave: (total: NutritionTotal, names: string[]) => void;
 }
 
-const ResultsCard: React.FC<ResultsCardProps> = ({ result }) => {
-  const getHealthRatingColor = (rating: string) => {
-    if (rating.includes('🟢')) return 'text-emerald-600 bg-emerald-50 border-emerald-200';
-    if (rating.includes('🟡')) return 'text-amber-600 bg-amber-50 border-amber-200';
-    return 'text-red-600 bg-red-50 border-red-200';
-  };
+const ratingStyle = (rating: string) => {
+  if (rating.includes('🟢')) return 'bg-emerald-50 text-emerald-700 ring-emerald-200';
+  if (rating.includes('🟡')) return 'bg-amber-50 text-amber-700 ring-amber-200';
+  return 'bg-red-50 text-red-700 ring-red-200';
+};
 
-  const getHealthRatingIcon = (rating: string) => {
-    if (rating.includes('🟢')) return <Heart className="h-4 w-4" />;
-    if (rating.includes('🟡')) return <Activity className="h-4 w-4" />;
-    return <TrendingUp className="h-4 w-4" />;
+const ResultsCard: React.FC<ResultsCardProps> = ({ result, imageUrl, goals, setGoals, loggedExcludingThis, isSaved, onSave }) => {
+  const { items } = result;
+  const [grams, setGrams] = useState<number[]>(() => items.map(() => 100));
+  const [lastGrams, setLastGrams] = useState<Record<number, number>>({}); // for undoing a removal
+  const [hovered, setHovered] = useState<number | null>(null);
+  const [dirty, setDirty] = useState(false);
+
+  const total = totalFor(items, grams);
+  const rating = healthRating(total);
+  const activeNames = items.filter((_, i) => grams[i] > 0).map((it) => it.name);
+
+  const setPortion = (i: number, g: number) => {
+    setGrams((prev) => prev.map((v, j) => (j === i ? g : v)));
+    setDirty(true);
+  };
+  const toggleRemoved = (i: number) => {
+    if (grams[i] > 0) {
+      setLastGrams({ ...lastGrams, [i]: grams[i] });
+      setPortion(i, 0);
+    } else {
+      setPortion(i, lastGrams[i] ?? 100);
+    }
+  };
+  const save = () => {
+    onSave(total, activeNames);
+    setDirty(false);
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-4xl mx-auto space-y-6"
-    >
-      {/* Health Rating Card */}
-      <div className={`p-6 rounded-2xl border-2 ${getHealthRatingColor(result.healthRating)}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            {getHealthRatingIcon(result.healthRating)}
-            <div>
-              <h3 className="text-xl font-bold">Overall Health Rating</h3>
-              <p className="text-sm opacity-80">Based on nutritional analysis</p>
-            </div>
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      {/* Photo, rating, save */}
+      <div className="lg:col-span-2 space-y-4 lg:sticky lg:top-24 self-start">
+        {imageUrl && <DetectionPhoto src={imageUrl} items={items} grams={grams} hovered={hovered} onHover={setHovered} />}
+        <div className={`flex items-center justify-between rounded-2xl p-5 ring-1 ${ratingStyle(rating)}`}>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide opacity-70">Health rating</p>
+            <p className="text-2xl font-bold">{rating}</p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold">{result.healthRating}</div>
-            {result.processingTime && (
-              <div className="text-xs opacity-60 flex items-center mt-1">
-                <Timer className="h-3 w-3 mr-1" />
-                {result.processingTime}s
-              </div>
-            )}
-          </div>
+          {result.processingTime !== undefined && (
+            <span className="flex items-center gap-1 text-xs opacity-70">
+              <Timer className="h-3.5 w-3.5" /> {result.processingTime}s
+            </span>
+          )}
         </div>
+        <button
+          onClick={save}
+          disabled={isSaved && !dirty}
+          className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3.5 font-semibold text-white shadow-lg shadow-emerald-600/20 transition-colors hover:bg-emerald-700 disabled:bg-emerald-50 disabled:text-emerald-700 disabled:shadow-none disabled:ring-1 disabled:ring-emerald-200"
+        >
+          {isSaved && !dirty ? (
+            <><BookmarkCheck className="h-5 w-5" /> Saved to today's log</>
+          ) : (
+            <><BookmarkPlus className="h-5 w-5" /> {isSaved ? 'Update log entry' : 'Save to log'}</>
+          )}
+        </button>
       </div>
 
-      {/* Nutrition Summary */}
-      <div className="bg-white rounded-2xl p-6 shadow-xl border border-gray-100">
-        <div className="flex items-center space-x-2 mb-6">
-          <Scale className="h-5 w-5 text-emerald-600" />
-          <h3 className="text-xl font-bold text-gray-900">Nutrition Summary</h3>
-        </div>
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 p-4 rounded-xl">
-            <div className="flex items-center space-x-2 mb-2">
-              <Zap className="h-4 w-4 text-emerald-600" />
-              <span className="text-sm font-medium text-emerald-700">Calories</span>
-            </div>
-            <div className="text-2xl font-bold text-emerald-900">{result.total.calories}</div>
-            <div className="text-xs text-emerald-600">kcal</div>
+      <div className="lg:col-span-3 space-y-6">
+        <section className="bg-white rounded-3xl p-6 shadow-xl shadow-gray-900/5 border border-gray-100">
+          <div className="mb-5">
+            <p className="text-sm font-medium text-gray-500">This meal</p>
+            <p className="text-lg font-bold text-gray-900">Calories by macronutrient</p>
           </div>
-          
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl">
-            <div className="flex items-center space-x-2 mb-2">
-              <Activity className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-700">Protein</span>
-            </div>
-            <div className="text-2xl font-bold text-blue-900">{result.total.protein}g</div>
-            <div className="text-xs text-blue-600">{Math.round((result.total.protein * 4 / result.total.calories) * 100)}% of calories</div>
-          </div>
-          
-          <div className="bg-gradient-to-br from-amber-50 to-amber-100 p-4 rounded-xl">
-            <div className="flex items-center space-x-2 mb-2">
-              <TrendingUp className="h-4 w-4 text-amber-600" />
-              <span className="text-sm font-medium text-amber-700">Carbs</span>
-            </div>
-            <div className="text-2xl font-bold text-amber-900">{result.total.carbs}g</div>
-            <div className="text-xs text-amber-600">{Math.round((result.total.carbs * 4 / result.total.calories) * 100)}% of calories</div>
-          </div>
-          
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl">
-            <div className="flex items-center space-x-2 mb-2">
-              <Info className="h-4 w-4 text-purple-600" />
-              <span className="text-sm font-medium text-purple-700">Fat</span>
-            </div>
-            <div className="text-2xl font-bold text-purple-900">{result.total.fat}g</div>
-            <div className="text-xs text-purple-600">{Math.round((result.total.fat * 9 / result.total.calories) * 100)}% of calories</div>
-          </div>
-        </div>
-      </div>
+          <MacroDonut total={total} />
+        </section>
 
-      {/* Food Items Detected */}
-      <div className="bg-white rounded-2xl p-6 shadow-xl border border-gray-100">
-        <div className="flex items-center space-x-2 mb-6">
-          <Utensils className="h-5 w-5 text-emerald-600" />
-          <h3 className="text-xl font-bold text-gray-900">Detected Food Items</h3>
-          <span className="bg-emerald-100 text-emerald-800 text-xs font-medium px-2 py-1 rounded-full">
-            {result.items.length} items
-          </span>
-        </div>
-        
-        <div className="space-y-4">
-          {result.items.map((item: FoodItem, index: number) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="bg-gray-50 rounded-xl p-4 hover:bg-gray-100 transition-colors duration-200"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900 capitalize text-lg">
-                    {item.name}
-                  </h4>
-                  {item.confidence && (
-                    <p className="text-sm text-gray-500">
-                      Confidence: {Math.round(item.confidence * 100)}%
-                    </p>
-                  )}
-                </div>
-                
-                <div className="grid grid-cols-4 gap-4 text-center">
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">{item.calories}</div>
-                    <div className="text-xs text-gray-500">cal</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-blue-600">{item.protein}g</div>
-                    <div className="text-xs text-gray-500">protein</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-amber-600">{item.carbs}g</div>
-                    <div className="text-xs text-gray-500">carbs</div>
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-purple-600">{item.fat}g</div>
-                    <div className="text-xs text-gray-500">fat</div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+        <section className="bg-white rounded-3xl p-6 shadow-xl shadow-gray-900/5 border border-gray-100">
+          <div className="flex items-center gap-2 mb-1">
+            <Utensils className="h-5 w-5 text-emerald-600" />
+            <h3 className="text-lg font-bold text-gray-900">Detected items</h3>
+            <span className="ml-auto bg-emerald-50 text-emerald-700 text-xs font-medium px-2.5 py-1 rounded-full">
+              {activeNames.length} of {items.length}
+            </span>
+          </div>
+          <p className="mb-4 text-sm text-gray-500">Adjust each portion; values are scaled from per-100g data.</p>
+
+          {items.length === 0 ? (
+            <p className="text-sm text-gray-500 py-6 text-center">No known foods were detected in this photo.</p>
+          ) : (
+            <ul className="space-y-2">
+              {items.map((item, i) => {
+                const removed = grams[i] === 0;
+                const f = grams[i] / 100;
+                return (
+                  <motion.li
+                    key={i}
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.06 }}
+                    onMouseEnter={() => setHovered(i)}
+                    onMouseLeave={() => setHovered(null)}
+                    className={`rounded-2xl p-3 transition-colors ${hovered === i ? 'bg-emerald-50 ring-1 ring-emerald-200' : 'bg-gray-50'} ${removed ? 'opacity-50' : ''}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className={`font-semibold capitalize text-gray-900 ${removed ? 'line-through' : ''}`}>{item.name}</p>
+                        {item.confidence !== undefined && (
+                          <p className="text-xs text-gray-500">{Math.round(item.confidence * 100)}% confidence</p>
+                        )}
+                      </div>
+                      <div className="hidden sm:flex gap-3 text-xs tabular-nums text-gray-600">
+                        <span>P {Math.round(item.protein * f * 10) / 10}g</span>
+                        <span>C {Math.round(item.carbs * f * 10) / 10}g</span>
+                        <span>F {Math.round(item.fat * f * 10) / 10}g</span>
+                      </div>
+                      <span className="w-20 text-right text-sm font-semibold text-gray-900 tabular-nums">
+                        {Math.round(item.calories * f)} kcal
+                      </span>
+                      <button
+                        onClick={() => toggleRemoved(i)}
+                        aria-label={removed ? `Restore ${item.name}` : `Remove ${item.name}`}
+                        title={removed ? 'Restore' : 'Not this food? Remove it'}
+                        className="rounded-lg p-1.5 text-gray-400 hover:bg-white hover:text-gray-700"
+                      >
+                        {removed ? <Undo2 className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                      </button>
+                    </div>
+                    {!removed && (
+                      <div className="mt-2 flex items-center gap-3">
+                        <input
+                          type="range"
+                          min={10}
+                          max={500}
+                          step={10}
+                          value={grams[i]}
+                          onChange={(e) => setPortion(i, Number(e.target.value))}
+                          aria-label={`${item.name} portion in grams`}
+                          className="flex-1 accent-emerald-600"
+                        />
+                        <span className="w-14 text-right text-sm font-medium text-gray-700 tabular-nums">{grams[i]}g</span>
+                      </div>
+                    )}
+                  </motion.li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {isSaved && !dirty ? (
+          <GoalsPanel goals={goals} setGoals={setGoals} logged={sumTotals([loggedExcludingThis, total])} />
+        ) : (
+          <GoalsPanel goals={goals} setGoals={setGoals} logged={loggedExcludingThis} pending={total} />
+        )}
       </div>
     </motion.div>
   );

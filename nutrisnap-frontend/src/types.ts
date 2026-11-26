@@ -5,6 +5,8 @@ export interface FoodItem {
   carbs: number;
   fat: number;
   confidence?: number;
+  /** Normalized [x1, y1, x2, y2] in 0..1 image coordinates. */
+  box?: [number, number, number, number] | null;
 }
 
 export interface NutritionTotal {
@@ -25,4 +27,14 @@ export interface ApiResponse {
   success: boolean;
   data?: AnalysisResult;
   error?: string;
+}
+
+export type Goals = NutritionTotal;
+
+export interface MealEntry {
+  id: string;
+  date: string; // ISO timestamp
+  names: string[];
+  total: NutritionTotal;
+  thumbnail?: string; // small JPEG data URL
 }
